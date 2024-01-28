@@ -1,16 +1,21 @@
 package com.example.LibraryApplication.service.impl;
 
+import com.example.LibraryApplication.dto.PagingResponse;
 import com.example.LibraryApplication.entity.Book;
 import com.example.LibraryApplication.repo.BookRepository;
 import com.example.LibraryApplication.service.BookService;
+import com.example.LibraryApplication.specification.BookSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * @author Hanan Al-Hajri
@@ -39,7 +44,7 @@ public class BookServiceImpl implements BookService {
     }
 
     @Override
-    @Cacheable(cacheNames = "books", key = "#id" )
+    @Cacheable(cacheNames = "books", key = "#id")
     public Book getBook(long id) {
         log.info("fetching book with id - {} from db", id);
         Optional<Book> book = bookRepository.findById(id);
@@ -54,5 +59,25 @@ public class BookServiceImpl implements BookService {
 
         return "Book deleted";
     }
+
+    @Override
+    public PagingResponse<Book> getBooksByCategory(String category, Pageable pageable) {
+        Page<Book> bookPage = bookRepository.findAll(
+                getBookSpecification(category),
+                PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by("id").ascending())
+        );
+        return new PagingResponse<>(
+                bookPage.stream().collect(Collectors.toList()),
+                bookPage.getTotalElements(),
+                bookPage.getTotalPages()
+        );
+    }
+
+    private Specification<Book> getBookSpecification(String category) {
+        Specification<Book> specification = Specification.where(null);
+        specification = specification.or(category == null ? null : BookSpecification.getByCategory(category));
+        return specification;
+    }
+
 
 }
